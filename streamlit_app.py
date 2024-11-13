@@ -5,8 +5,8 @@ import json
 from typing import Dict, Any
 
 # Initialize API keys from Streamlit secrets
-groq_api_key = st.secrets["groq_api_key"]
 guardrails_api_key = st.secrets["guardrails_api_key"]
+groq_api_key = st.secrets["groq_api_key"]
 
 # Initialize Groq client
 groq_client = groq.Client(api_key=groq_api_key)
