@@ -6,7 +6,7 @@ sanity = SanityClient(
     project_id="your-project-id",
     dataset="production",
     api_version="2021-03-25",
-    token="your-groq-api-key"
+    token="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"
 )
 
 # Initialize chat history
