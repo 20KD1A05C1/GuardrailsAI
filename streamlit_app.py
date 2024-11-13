@@ -1,43 +1,41 @@
 import streamlit as st
-import SanityClient
+import requests
 
-# Set up Sanity client
-sanity = SanityClient(
-    project_id="your-project-id",
-    dataset="production",
-    api_version="2021-03-25",
-    token="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"
-)
+# Initialize session state to store chat history
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-# Initialize chat history
-chat_history = []
+# Sidebar for instructions or additional info
+st.sidebar.title("Chat with Groq API")
+st.sidebar.write("Ask any question, and I'll try to answer using the Groq API.")
 
-def generate_response(user_message):
-    # This is a very basic example of a response generator
-    # In a real application, you would integrate an AI model here
-    return f"You said: '{user_message}'. I heard you!"
+# Input form for user questions
+st.title("Groq API Chat App")
+user_question = st.text_input("Enter your question here:")
 
-def save_chat_to_sanity(user_message, bot_response):
-    # Save chat to Sanity
-    chat_entry = {
-        "_type": "chat",
-        "user_message": user_message,
-        "bot_response": bot_response
-    }
-    sanity.create(chat_entry)
+if st.button("Submit"):
+    if user_question:
+        # Send the question to the Groq API
+        response = requests.post(
+            "https://your-groq-api-endpoint.com/ask",  # Replace with your actual Groq API endpoint
+            json={"question": user_question},
+            headers={"Authorization": "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" }  # Replace with your actual API key
+        )
+        
+        if response.status_code == 200:
+            answer = response.json().get("answer", "I'm not sure, but I'll try to improve!")
+            # Store the question and answer in history
+            st.session_state.history.append({"question": user_question, "answer": answer})
+        else:
+            st.error("Failed to get a response from the Groq API. Please try again later.")
 
-st.title("Chat App")
+# Display chat history
+if st.session_state.history:
+    for chat in st.session_state.history:
+        st.write("**Q:**", chat["question"])
+        st.write("**A:**", chat["answer"])
 
-user_input = st.text_input("Enter your message:", "")
-
-if st.button("Send"):
-    bot_response = generate_response(user_input)
-    chat_history.append({"user_message": user_input, "bot_response": bot_response})
-    save_chat_to_sanity(user_input, bot_response)
-    st.write(f"You: {user_input}")
-    st.write(f"Bot: {bot_response}")
-
-st.subheader("Chat History")
-for chat in chat_history:
-    st.write(f"You: {chat['user_message']}")
-    st.write(f"Bot: {chat['bot_response']}")
+# Clear chat history option
+if st.button("Clear Chat History"):
+    st.session_state.history.clear()
+    st.write("Chat history cleared.")
