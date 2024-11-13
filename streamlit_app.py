@@ -17,9 +17,9 @@ if st.button("Submit"):
     if user_question:
         # Send the question to the Groq API
         response = requests.post(
-            "https://your-groq-api-endpoint.com/ask",  # Replace with your actual Groq API endpoint
+            "https://api.groq.com/v1/ask",  # Replace with your actual Groq API endpoint
             json={"question": user_question},
-            headers={"Authorization": "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" }  # Replace with your actual API key
+            headers={"Authorization": "Bearer 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" }  # Replace with your actual API key
         )
         
         if response.status_code == 200:
