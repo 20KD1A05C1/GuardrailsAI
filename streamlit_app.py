@@ -22,18 +22,18 @@ guardrails_headers = {
     "Content-Type": "application/json"
 }
 
-def handle_guard_error(guard_result):
-    """
-    Handle errors that occur during input or output guard checks
-    """
-    if not guard_result:
-        return "There was an error checking the message. Please try again later."
+# def handle_guard_error(guard_result):
+#     """
+#     Handle errors that occur during input or output guard checks
+#     """
+#     if not guard_result:
+#         return "There was an error checking the message. Please try again later."
     
-    if not guard_result.get("passed"):
-        violations = guard_result.get("violations", [])
-        return f"Content blocked due to: {', '.join(violations)}"
+#     if not guard_result.get("passed"):
+#         violations = guard_result.get("violations", [])
+#         return f"Content blocked due to: {', '.join(violations)}"
     
-    return None
+#     return None
 
 def apply_input_guard(user_input: str) -> Dict[str, Any]:
     """
