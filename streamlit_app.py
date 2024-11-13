@@ -1,56 +1,182 @@
 import streamlit as st
+import groq
 import requests
 import json
+from typing import Dict, Any
 
-# Initialize session state for conversation history
-if "conversation" not in st.session_state:
-    st.session_state.conversation = []
+# Initialize API keys from Streamlit secrets
+groq_api_key = st.secrets["groq_api_key"]
+guardrails_api_key = st.secrets["guardrails_api_key"]
 
-# Set up the Streamlit interface
-st.title("Chat App using Groq API")
-st.write("Ask any question and get an answer!")
+# Initialize Groq client
+groq_client = groq.Client(api_key=groq_api_key)
 
-# Input for user's question
-user_question = st.text_input("Your Question:")
+# Guardrails API endpoints
+GUARDRAILS_BASE_URL = "https://api.guardrailsai.com/v1"
+INPUT_GUARD_URL = f"{GUARDRAILS_BASE_URL}/guard/input"
+OUTPUT_GUARD_URL = f"{GUARDRAILS_BASE_URL}/guard/output"
 
-# Fetch answer when the user submits a question
-if st.button("Get Answer"):
-    if user_question.strip():
-        try:
-            # Set up request payload
-            payload = {
-                "question": user_question,
-            }
-            headers = {
-                "Authorization": f"Bearer {st.secrets['GROQ_API_KEY']}",
-                "Content-Type": "application/json",
-            }
+# Guardrails headers
+guardrails_headers = {
+    "Authorization": f"Bearer {guardrails_api_key}",
+    "Content-Type": "application/json"
+}
 
-            # Make request to Groq API
-            response = requests.post("https://api.groq.com/v1/question", headers=headers, json=payload)
-            st.write("Response Content:", response.text)
-            st.session_state.conversation.append({"question": user_question, "answer": answer})
-           
-
-            # Process response
-            answer = "Unable to fetch an answer. Please try again later."
-            if response.status_code == 200:
-                answer = response.json().get("answer", "No answer found.")
-                # Store the question and answer in conversation history 
-                st.write("Response Status Code:", response.status_code)
+def apply_input_guard(user_input: str) -> Dict[str, Any]:
+    """
+    Apply input guard using Guardrails API to validate and sanitize user input
+    """
+    try:
+        payload = {
+            "input": user_input,
+            "guards": [
+                "no_harassment",
+                "no_hate_speech",
+                "no_profanity",
+                "no_sexual_content",
+                "no_violence"
+            ]
+        }
         
-            else:
-                answer = f"Error: Unable to fetch the answer. Details: {response.text}"
-                st.session_state.conversation.append({"question": user_question, "answer": answer})
-        except Exception as e:
-            st.write(f"An error occurred: {e}")
-    else:
-        st.write("Please enter a question to get an answer.")
+        response = requests.post(
+            INPUT_GUARD_URL,
+            headers=guardrails_headers,
+            json=payload
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        st.error(f"Input guard error: {str(e)}")
+        return None
 
-# Display the conversation history
-if st.session_state.conversation:
-    st.write("## Conversation History")
-    for entry in st.session_state.conversation:
-        st.write(f"**Question:** {entry['question']}")
-        st.write(f"**Answer:** {entry['answer']}")
-        st.write("---")
+def apply_output_guard(ai_response: str) -> Dict[str, Any]:
+    """
+    Apply output guard using Guardrails API to validate and sanitize AI response
+    """
+    try:
+        payload = {
+            "output": ai_response,
+            "guards": [
+                "no_harassment",
+                "no_hate_speech",
+                "no_profanity",
+                "no_sexual_content",
+                "no_violence",
+                "factual_accuracy",
+                "response_relevance"
+            ]
+        }
+        
+        response = requests.post(
+            OUTPUT_GUARD_URL,
+            headers=guardrails_headers,
+            json=payload
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        st.error(f"Output guard error: {str(e)}")
+        return None
+
+def get_ai_response(prompt: str) -> str:
+    """
+    Get response from Groq API
+    """
+    try:
+        response = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a helpful, respectful, and honest assistant. Always provide accurate and relevant information, and acknowledge when you're not sure about something."},
+                {"role": "user", "content": prompt}
+            ],
+            model="mixtral-8x7b-32768",
+            max_tokens=800,
+            temperature=0.7
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        st.error(f"Groq API error: {str(e)}")
+        return None
+
+def process_message(user_input: str) -> str:
+    """
+    Process user message through input guard, AI, and output guard
+    """
+    # Apply input guard
+    input_guard_result = apply_input_guard(user_input)
+    if not input_guard_result or not input_guard_result.get("passed", False):
+        return "I apologize, but I cannot process that input. Please ensure your message is appropriate and try again."
+    
+    # Get AI response
+    ai_response = get_ai_response(user_input)
+    if not ai_response:
+        return "I apologize, but I couldn't generate a response at this time. Please try again."
+    
+    # Apply output guard
+    output_guard_result = apply_output_guard(ai_response)
+    if not output_guard_result or not output_guard_result.get("passed", False):
+        return "I generated a response but it didn't meet our quality standards. Please try asking your question differently."
+    
+    return ai_response
+
+def initialize_session_state():
+    """
+    Initialize session state variables
+    """
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "conversation_started" not in st.session_state:
+        st.session_state.conversation_started = False
+
+def display_chat_interface():
+    """
+    Display and handle the chat interface
+    """
+    st.title("AI Chat Assistant")
+    st.caption("Ask me anything! Your messages are protected by input and output guards.")
+    
+    # Display chat messages
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    # Get user input
+    if prompt := st.chat_input("Type your message here..."):
+        # Display user message
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        
+        # Get and display assistant response
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                response = process_message(prompt)
+                st.markdown(response)
+        st.session_state.messages.append({"role": "assistant", "content": response})
+
+def main():
+    # Set page config
+    st.set_page_config(
+        page_title="AI Chat Assistant",
+        page_icon="💭",
+        layout="centered"
+    )
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Display chat interface
+    display_chat_interface()
+    
+    # Add a footer
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style='text-align: center'>
+            <p>This chat is protected by input and output guards for safety and quality.</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+if __name__ == "__main__":
+    main()
