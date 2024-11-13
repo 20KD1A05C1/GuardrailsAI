@@ -1,5 +1,5 @@
 import streamlit as st
-from sanity_client import SanityClient
+import SanityClient
 
 # Set up Sanity client
 sanity = SanityClient(
