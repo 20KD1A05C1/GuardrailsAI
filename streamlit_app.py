@@ -32,7 +32,11 @@ if st.button("Get Answer"):
             # Process response
             if response.status_code == 200:
                 answer = response.json().get("answer", "No answer found.")
-                # Store the question and answer in conversation history
+                # Store the question and answer in conversation history 
+                st.write("Response Status Code:", response.status_code)
+st.write("Response Content:", response.text)
+
+                
                 st.session_state.conversation.append({"question": user_question, "answer": answer})
             else:
                 answer = "Error: Unable to fetch the answer. Please try again."
