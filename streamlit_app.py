@@ -1,12 +1,12 @@
 import streamlit as st
 import groq
 import requests
-import json
+from urllib3.exceptions import NewConnectionError, MaxRetryError
 from typing import Dict, Any
 
 # Initialize API keys from Streamlit secrets
-guardrails_api_key = st.secrets["guardrails_api_key"]
 groq_api_key = st.secrets["groq_api_key"]
+guardrails_api_key = st.secrets["guardrails_api_key"]
 
 # Initialize Groq client
 groq_client = groq.Client(api_key=groq_api_key)
@@ -21,6 +21,19 @@ guardrails_headers = {
     "Authorization": f"Bearer {guardrails_api_key}",
     "Content-Type": "application/json"
 }
+
+def handle_guard_error(guard_result):
+    """
+    Handle errors that occur during input or output guard checks
+    """
+    if not guard_result:
+        return "There was an error checking the message. Please try again later."
+    
+    if not guard_result.get("passed"):
+        violations = guard_result.get("violations", [])
+        return f"Content blocked due to: {', '.join(violations)}"
+    
+    return None
 
 def apply_input_guard(user_input: str) -> Dict[str, Any]:
     """
@@ -45,7 +58,7 @@ def apply_input_guard(user_input: str) -> Dict[str, Any]:
         )
         response.raise_for_status()
         return response.json()
-    except Exception as e:
+    except (requests.exceptions.RequestException, NewConnectionError, MaxRetryError) as e:
         st.error(f"Input guard error: {str(e)}")
         return None
 
@@ -74,7 +87,7 @@ def apply_output_guard(ai_response: str) -> Dict[str, Any]:
         )
         response.raise_for_status()
         return response.json()
-    except Exception as e:
+    except (requests.exceptions.RequestException, NewConnectionError, MaxRetryError) as e:
         st.error(f"Output guard error: {str(e)}")
         return None
 
@@ -103,8 +116,9 @@ def process_message(user_input: str) -> str:
     """
     # Apply input guard
     input_guard_result = apply_input_guard(user_input)
-    if not input_guard_result or not input_guard_result.get("passed", False):
-        return "I apologize, but I cannot process that input. Please ensure your message is appropriate and try again."
+    input_guard_error = handle_guard_error(input_guard_result)
+    if input_guard_error:
+        return input_guard_error
     
     # Get AI response
     ai_response = get_ai_response(user_input)
@@ -113,8 +127,9 @@ def process_message(user_input: str) -> str:
     
     # Apply output guard
     output_guard_result = apply_output_guard(ai_response)
-    if not output_guard_result or not output_guard_result.get("passed", False):
-        return "I generated a response but it didn't meet our quality standards. Please try asking your question differently."
+    output_guard_error = handle_guard_error(output_guard_result)
+    if output_guard_error:
+        return output_guard_error
     
     return ai_response
 
