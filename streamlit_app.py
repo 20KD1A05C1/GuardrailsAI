@@ -28,18 +28,18 @@ if st.button("Get Answer"):
 
             # Make request to Groq API
             response = requests.post("https://api.groq.com/answer", headers=headers, json=payload)
+            st.write("Response Content:", response.text)
+            st.session_state.conversation.append({"question": user_question, "answer": answer})
+           
 
             # Process response
             if response.status_code == 200:
                 answer = response.json().get("answer", "No answer found.")
                 # Store the question and answer in conversation history 
                 st.write("Response Status Code:", response.status_code)
-st.write("Response Content:", response.text)
-
-                
-                st.session_state.conversation.append({"question": user_question, "answer": answer})
+        
             else:
-                answer = "Error: Unable to fetch the answer. Please try again."
+                answer = f"Error: Unable to fetch the answer. Details: {response.text}"
                 st.session_state.conversation.append({"question": user_question, "answer": answer})
         except Exception as e:
             st.write(f"An error occurred: {e}")
