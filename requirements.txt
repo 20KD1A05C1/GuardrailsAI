@@ -1,4 +1,5 @@
 streamlit
+sanity_client
 requests
 groq
 jsonschema
