@@ -12,9 +12,9 @@ guardrails_api_key = st.secrets["guardrails_api_key"]
 groq_client = groq.Client(api_key=groq_api_key)
 
 # Guardrails API endpoints
-GUARDRAILS_BASE_URL = "https://api.guardrailsai.com/v1"
-INPUT_GUARD_URL = f"{GUARDRAILS_BASE_URL}/guard/input"
-OUTPUT_GUARD_URL = f"{GUARDRAILS_BASE_URL}/guard/output"
+GUARDRAILS_IP = "123.45.67.89"  # Replace with the actual IP address of the Guardrails API
+INPUT_GUARD_URL = f"https://{GUARDRAILS_IP}/v1/guard/input"
+OUTPUT_GUARD_URL = f"https://{GUARDRAILS_IP}/v1/guard/output"
 
 # Guardrails headers
 guardrails_headers = {
